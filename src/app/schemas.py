@@ -78,6 +78,12 @@ class Document(BaseModel):
         le=1.0,
         description="Percentile rank of the log-scaled popularity.",
     )
+    popularity_score: float = Field(
+        default=0.0,
+        ge=0.0,
+        le=1.0,
+        description="Final blended popularity score used for ranking.",
+    )
 
     @classmethod
     def from_hit(cls, hit: dict[str, Any]) -> "Document":
@@ -135,6 +141,10 @@ class Document(BaseModel):
             1.0,
             max(0.0, _float_value("popularity_percentile")),
         )
+        popularity_score = min(
+            1.0,
+            max(0.0, _float_value("popularity_score")),
+        )
 
         return cls(
             id=str(source.get("id") or hit.get("_id")),
@@ -154,6 +164,7 @@ class Document(BaseModel):
             popularity_raw=popularity_raw,
             popularity_log=popularity_log,
             popularity_percentile=popularity_percentile,
+            popularity_score=popularity_score,
         )
 
 

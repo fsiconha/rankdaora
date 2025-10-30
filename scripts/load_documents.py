@@ -137,6 +137,7 @@ def recreate_index(client: Elasticsearch, index_name: str) -> None:
                 "popularity_raw": {"type": "float"},
                 "popularity_log": {"type": "float"},
                 "popularity_percentile": {"type": "float"},
+                "popularity_score": {"type": "float"},
             }
         }
     }
@@ -283,9 +284,29 @@ def bulk_load(
         )
         document["popularity_raw"] = float(metrics["popularity_raw"])
         document["popularity_log"] = float(log_scores[index])
-        document["popularity_percentile"] = float(
-            percentile_scores[index]
+        percentile_value = float(percentile_scores[index])
+        document["popularity_percentile"] = percentile_value
+
+        corrected_norm = min(
+            1.0,
+            max(0.0, float(metrics["corrected_clicks"]) / 50.0),
         )
+        impressions_norm = 0.0
+        if metrics["adjusted_impressions"] > 0:
+            impressions_norm = min(
+                1.0,
+                float(metrics["adjusted_impressions"]) / 100.0,
+            )
+        popularity_score = min(
+            1.0,
+            max(
+                0.0,
+                0.5 * percentile_value
+                + 0.3 * corrected_norm
+                + 0.2 * impressions_norm,
+            ),
+        )
+        document["popularity_score"] = popularity_score
 
     actions = [
         {
