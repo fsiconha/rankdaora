@@ -1,0 +1,32 @@
+[tool.poetry]
+name = "rankdaora"
+version = "0.1.0"
+description = "A project designed to be simple, modular, and easily extensible, serving as a foundation for experimenting with new ranking strategies, hybrid scoring models, and signal integration, to produce more “daora” (cool and optimal) rankings."
+authors = ["Felipe Siconha"]
+readme = "README.md"
+package-mode = false
+
+[tool.poetry.dependencies]
+python = "^3.11"
+fastapi = "^0.112.0"
+uvicorn = { extras = ["standard"], version = "^0.30.0" }
+elasticsearch = "^8.14.0"
+pydantic-settings = "^2.4.0"
+aiohttp = "^3.13.2"
+
+[tool.poetry.group.dev.dependencies]
+pytest = "^8.3.0"
+httpx = "^0.27.2"
+ruff = "^0.5.3"
+
+[build-system]
+requires = ["poetry-core>=2.0.0,<3.0.0"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.ruff]
+line-length = 80
+target-version = "py311"
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+addopts = "-ra"
