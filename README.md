@@ -24,20 +24,20 @@ The project is designed to be simple, modular, and easily extensible, serving as
 1. Generate the synthetic dataset (only once or whenever you want to refresh the data):
 
    ```bash
-   python scripts/generate_dataset.py
+   poetry run python scripts/generate_dataset.py
    ```
 
 2. Load the documents into Elasticsearch (run after the service is ready):
 
    ```bash
-   docker compose up -d elasticsearch
-   python scripts/load_documents.py --recreate-index
+   docker-compose up -d elasticsearch
+   poetry run python scripts/load_documents.py --recreate-index
    ```
 
 3. Bring up the API with auto-reload:
 
    ```bash
-   docker compose up --build api
+   docker-compose up --build api
    ```
 
    The API will be available at `http://localhost:8000`. The `/search?query=...` route returns ordering based on Elasticsearch relevance.
@@ -45,8 +45,6 @@ The project is designed to be simple, modular, and easily extensible, serving as
 ## Running tests and lint
 
 ```bash
-python -m pip install --upgrade pip
-python -m pip install .[dev]
-ruff check .
-pytest
+poetry run make install
+poetry run make pre-commit
 ```
