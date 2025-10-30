@@ -1,45 +1,48 @@
-# RankDaora
+# rankdaora
 
-Projeto exemplo para demonstrar um pipeline simples de busca com FastAPI e Elasticsearch.
+`rankdaora` is a lightweight ranking system prototype built on top of Elasticsearch and FastAPI.
+It demonstrates how to enrich search results by combining traditional relevance scores with additional signals — such as user interaction — to produce more “daora” (cool and optimal) rankings.
 
-## Visao geral
+The project is designed to be simple, modular, and easily extensible, serving as a foundation for experimenting with new ranking strategies, hybrid scoring models, and signal integration.
 
-- `compose.yaml` orquestra Elasticsearch e a API FastAPI.
-- `scripts/generate_dataset.py` gera um dataset sintetico (~120 documentos).
-- `scripts/load_documents.py` recria o indice `legal-docs` e faz bulk insert dos documentos.
-- `src/app` contem a aplicacao FastAPI, modelos Pydantic e integracao com o cliente Elasticsearch.
-- `tests/` possui testes com `pytest` utilizando um cliente fake para simular o backend.
-- `.github/workflows/ci.yml` roda lint (`ruff`) e testes em PRs e pushes.
+## Overview
 
-## Requisitos
+- `compose.yaml` orchestrates Elasticsearch and the FastAPI API service.
+- `scripts/generate_dataset.py` produces a synthetic dataset (~120 documents).
+- `scripts/load_documents.py` recreates the `legal-docs` index and bulk inserts the documents.
+- `src/app` contains the FastAPI application, Pydantic models, and Elasticsearch client integration.
+- `tests/` provides pytest suites that use a fake client to simulate the backend.
+- `.github/workflows/ci.yml` runs linting (`ruff`) and tests on pull requests and pushes.
 
-- Docker e Docker Compose
-- Python 3.11+ (opcional, para executar scripts utilitarios fora do container)
+## Requirements
 
-## Executando com Docker Compose
+- Docker and Docker Compose
+- Python 3.11+ (optional, for running utility scripts outside the container)
 
-1. Gere o dataset sintetico (apenas uma vez ou quando quiser renovar os dados):
+## Running with Docker Compose
 
-	```bash
-	python scripts/generate_dataset.py
-	```
+1. Generate the synthetic dataset (only once or whenever you want to refresh the data):
 
-2. Carregue os documentos no Elasticsearch (executar apos o servico estar de pe):
+   ```bash
+   python scripts/generate_dataset.py
+   ```
 
-	```bash
-	docker compose up -d elasticsearch
-	python scripts/load_documents.py --recreate-index
-	```
+2. Load the documents into Elasticsearch (run after the service is ready):
 
-3. Suba a API com recarregamento automático:
+   ```bash
+   docker compose up -d elasticsearch
+   python scripts/load_documents.py --recreate-index
+   ```
 
-	```bash
-	docker compose up --build api
-	```
+3. Bring up the API with auto-reload:
 
-		A API ficara disponivel em `http://localhost:8000`. A rota `/search?query=...` retorna a ordenacao baseada na relevancia do Elasticsearch.
+   ```bash
+   docker compose up --build api
+   ```
 
-## Executando testes e lint
+   The API will be available at `http://localhost:8000`. The `/search?query=...` route returns ordering based on Elasticsearch relevance.
+
+## Running tests and lint
 
 ```bash
 python -m pip install --upgrade pip
@@ -47,9 +50,3 @@ python -m pip install .[dev]
 ruff check .
 pytest
 ```
-
-## Próximos passos sugeridos
-
-- Integrar metricas de clique ao `combined_score` para refinar o ranking.
-- Adicionar pipelines de ingestao ou agendamento para atualizar dados periodicamente.
-- Expandir a suite de testes com cenarios de erro e integracao end-to-end.
