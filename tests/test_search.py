@@ -45,6 +45,7 @@ class FakeElasticsearch:
                             "popularity_raw": 0.6,
                             "popularity_log": 0.47,
                             "popularity_percentile": 0.8,
+                            "popularity_score": 0.73,
                         },
                     }
                 ]
@@ -88,3 +89,4 @@ def test_search_returns_results(test_client: TestClient) -> None:
     assert document["popularity_raw"] == pytest.approx(0.6)
     assert document["popularity_log"] == pytest.approx(0.47)
     assert document["popularity_percentile"] == pytest.approx(0.8)
+    assert document["popularity_score"] == pytest.approx(0.73)

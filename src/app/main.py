@@ -54,9 +54,26 @@ async def search(
         response = await es_client.search(
             index=settings.elasticsearch_index,
             query={
-                "multi_match": {
-                    "query": query,
-                    "fields": ["title^2", "content"],
+                "script_score": {
+                    "query": {
+                        "multi_match": {
+                            "query": query,
+                            "fields": ["title^2", "content"],
+                        }
+                    },
+                    "script": {
+                        "source": (
+                            "params.text_weight * _score + "
+                            "params.pop_weight * ("
+                            "doc.containsKey('popularity_score') && "
+                            "doc['popularity_score'].size() != 0 ? "
+                            "doc['popularity_score'].value : 0.0)"
+                        ),
+                        "params": {
+                            "text_weight": 0.7,
+                            "pop_weight": 0.3,
+                        },
+                    },
                 }
             },
             size=settings.results_size,
@@ -66,7 +83,7 @@ async def search(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Index '{settings.elasticsearch_index}' not found.",
         ) from error
-    except es_exceptions.ElasticsearchException as error:
+    except es_exceptions.TransportError as error:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail="Search backend is unavailable.",
