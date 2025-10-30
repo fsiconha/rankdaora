@@ -140,7 +140,6 @@ def generate_document(counter: int) -> dict[str, object]:
         "court": random.choice(COURTS),
         "date": random_date(),
         "es_score": 0.0,
-        "combined_score": 0.0,
         "click_count": (click_count := generate_click_count()),
         "click_position": generate_click_position(click_count),
         "click_impression": generate_click_impression(click_count),
