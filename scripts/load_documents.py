@@ -37,6 +37,55 @@ def normalize_click_count(raw: object) -> int:
     return 0
 
 
+def normalize_click_position(raw: object) -> int:
+    """Convert inputs to a non-negative click position."""
+
+    if isinstance(raw, bool):
+        return int(raw)
+    if isinstance(raw, (int, float)):
+        return max(0, min(100, int(raw)))
+    if isinstance(raw, str):
+        stripped = raw.strip()
+        if not stripped:
+            return 0
+        try:
+            value = float(stripped)
+        except ValueError:
+            return 0
+        return max(0, min(100, int(value)))
+    return 0
+
+
+def normalize_click_impression(raw: object) -> int:
+    """Convert inputs to a non-negative impression count."""
+
+    if isinstance(raw, bool):
+        return int(raw)
+    if isinstance(raw, (int, float)):
+        return max(0, min(10000, int(raw)))
+    if isinstance(raw, str):
+        stripped = raw.strip()
+        if not stripped:
+            return 0
+        try:
+            value = float(stripped)
+        except ValueError:
+            return 0
+        return max(0, min(10000, int(value)))
+    return 0
+
+
+def normalize_click_timestamp(raw: object) -> str | None:
+    """Return a best-effort ISO timestamp string."""
+
+    if raw is None:
+        return None
+    if isinstance(raw, str):
+        stripped = raw.strip()
+        return stripped or None
+    return None
+
+
 def iter_documents(dataset_path: Path) -> Iterable[dict[str, object]]:
     """Yield documents from a JSONL dataset."""
 
@@ -63,10 +112,13 @@ def recreate_index(client: Elasticsearch, index_name: str) -> None:
                 "es_score": {"type": "float"},
                 "combined_score": {"type": "float"},
                 "click_count": {"type": "integer"},
+                "click_position": {"type": "integer"},
+                "click_impression": {"type": "integer"},
+                "click_timestamp": {"type": "date"},
             }
         }
     }
-    client.indices.create(index=index_name, **mappings)
+    client.indices.create(index=index_name, body=mappings)
 
 
 def bulk_load(
@@ -81,16 +133,41 @@ def bulk_load(
             "_op_type": "index",
             "_index": index_name,
             "_id": document.get("id"),
-            "_source": {
-                **document,
-                "click_count": normalize_click_count(
-                    document.get("click_count", 0)
-                ),
-            },
+            "_source": (source := {**document}),
         }
         for document in iter_documents(dataset_path)
     )
-    helpers.bulk(client, actions)
+    prepared_actions = []
+    for action in actions:
+        source = action["_source"]
+        click_count = normalize_click_count(source.get("click_count", 0))
+        click_position = normalize_click_position(
+            source.get("click_position", 0)
+        )
+        click_impression = normalize_click_impression(
+            source.get("click_impression", click_count)
+        )
+        if click_impression < click_count:
+            click_impression = click_count
+        click_timestamp = normalize_click_timestamp(
+            source.get("click_timestamp")
+        )
+
+        source.update(
+            {
+                "click_count": click_count,
+                "click_position": click_position,
+                "click_impression": click_impression,
+            }
+        )
+        if click_timestamp is not None:
+            source["click_timestamp"] = click_timestamp
+        else:
+            source.pop("click_timestamp", None)
+
+        prepared_actions.append(action)
+
+    helpers.bulk(client, prepared_actions)
 
 
 def main() -> None:

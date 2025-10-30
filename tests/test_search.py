@@ -36,6 +36,9 @@ class FakeElasticsearch:
                             "date": "2024-01-10",
                             "combined_score": 1.23,
                             "click_count": 17,
+                            "click_position": 2,
+                            "click_impression": 120,
+                            "click_timestamp": "2025-01-10T12:34:00Z",
                         },
                     }
                 ]
@@ -70,3 +73,6 @@ def test_search_returns_results(test_client: TestClient) -> None:
     assert document["es_score"] == pytest.approx(1.23)
     assert document["combined_score"] == pytest.approx(1.23)
     assert document["click_count"] == 17
+    assert document["click_position"] == 2
+    assert document["click_impression"] == 120
+    assert document["click_timestamp"] == "2025-01-10T12:34:00Z"
