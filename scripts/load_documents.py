@@ -5,17 +5,33 @@ from __future__ import annotations
 import argparse
 import json
 import sys
+from datetime import datetime, timezone
 from pathlib import Path
-from typing import Iterable
+from typing import Any, Iterable
 
 from elasticsearch import Elasticsearch, helpers
 
 ROOT_DIR = Path(__file__).resolve().parents[1]
 SRC_DIR = ROOT_DIR / "src"
+if str(ROOT_DIR) not in sys.path:
+    sys.path.insert(0, str(ROOT_DIR))
 if str(SRC_DIR) not in sys.path:
     sys.path.insert(0, str(SRC_DIR))
 
 from app.config import get_settings  # noqa: E402
+from preprocessing.bayesian_smoothing import (  # noqa: E402
+    BayesianSmoother,
+    adjusted_impressions,
+)
+from preprocessing.bias_correction import PositionBiasCorrector  # noqa: E402
+from preprocessing.ips import (  # noqa: E402
+    ImpressionEvent,
+    corrected_clicks,
+)
+from preprocessing.log_transformation import (  # noqa: E402
+    log_transform,
+    percentile_rank,
+)
 
 
 def normalize_click_count(raw: object) -> int:
@@ -115,6 +131,13 @@ def recreate_index(client: Elasticsearch, index_name: str) -> None:
                 "click_position": {"type": "integer"},
                 "click_impression": {"type": "integer"},
                 "click_timestamp": {"type": "date"},
+                "click_count_raw": {"type": "integer"},
+                "click_count_corrected": {"type": "float"},
+                "click_impression_adjusted": {"type": "float"},
+                "popularity_raw": {"type": "float"},
+                "popularity_log": {"type": "float"},
+                "popularity_percentile": {"type": "float"},
+                "popularity_score": {"type": "float"},
             }
         }
     }
@@ -128,18 +151,9 @@ def bulk_load(
 ) -> None:
     """Bulk insert documents into Elasticsearch."""
 
-    actions = (
-        {
-            "_op_type": "index",
-            "_index": index_name,
-            "_id": document.get("id"),
-            "_source": (source := {**document}),
-        }
-        for document in iter_documents(dataset_path)
-    )
-    prepared_actions = []
-    for action in actions:
-        source = action["_source"]
+    documents: list[dict[str, Any]] = []
+    for document in iter_documents(dataset_path):
+        source = {**document}
         click_count = normalize_click_count(source.get("click_count", 0))
         click_position = normalize_click_position(
             source.get("click_position", 0)
@@ -165,9 +179,146 @@ def bulk_load(
         else:
             source.pop("click_timestamp", None)
 
-        prepared_actions.append(action)
+        documents.append(source)
 
-    helpers.bulk(client, prepared_actions)
+    if not documents:
+        return
+
+    corrector = PositionBiasCorrector()
+    for document in documents:
+        impressions = normalize_click_impression(
+            document.get("click_impression", 0)
+        )
+        clicks = normalize_click_count(document.get("click_count", 0))
+        position = normalize_click_position(
+            document.get("click_position", 0)
+        )
+        if impressions <= 0 and clicks <= 0:
+            continue
+        corrector.ingest([(position, impressions, clicks)])
+
+    reference_time = datetime.now(timezone.utc)
+    document_metrics: list[dict[str, Any]] = []
+    total_corrected_clicks = 0.0
+    total_adjusted_impressions = 0.0
+
+    for document in documents:
+        clicks_value = normalize_click_count(document.get("click_count", 0))
+        impressions_value = normalize_click_impression(
+            document.get("click_impression", 0)
+        )
+        position_value = normalize_click_position(
+            document.get("click_position", 0)
+        )
+        timestamp_raw = document.get("click_timestamp")
+        timestamp = (
+            timestamp_raw
+            if isinstance(timestamp_raw, str)
+            else None
+        )
+
+        document["click_count"] = clicks_value
+        document["click_impression"] = impressions_value
+        document["click_position"] = position_value
+        if timestamp is not None:
+            document["click_timestamp"] = timestamp
+        else:
+            document.pop("click_timestamp", None)
+
+        event = ImpressionEvent(
+            position=position_value,
+            clicks=float(clicks_value),
+            impressions=float(impressions_value),
+            timestamp=timestamp,
+        )
+        corrected = corrected_clicks(
+            [event],
+            corrector,
+            now=reference_time,
+        )
+        adjusted = adjusted_impressions(
+            [event],
+            corrector,
+            now=reference_time,
+        )
+
+        document_metrics.append(
+            {
+                "source": document,
+                "corrected_clicks": corrected,
+                "adjusted_impressions": adjusted,
+                "raw_clicks": clicks_value,
+                "raw_impressions": impressions_value,
+            }
+        )
+        total_corrected_clicks += corrected
+        total_adjusted_impressions += adjusted
+
+    if total_adjusted_impressions <= 0:
+        prior = 0.0
+    else:
+        prior = total_corrected_clicks / total_adjusted_impressions
+
+    smoother = BayesianSmoother(prior=prior, pseudocount=10.0)
+
+    raw_scores: list[float] = []
+    for metrics in document_metrics:
+        score = smoother.score_from_stats(
+            float(metrics["corrected_clicks"]),
+            float(metrics["adjusted_impressions"]),
+        )
+        metrics["popularity_raw"] = score
+        raw_scores.append(score)
+
+    log_scores = log_transform(raw_scores)
+    percentile_scores = percentile_rank(log_scores)
+
+    for index, metrics in enumerate(document_metrics):
+        document = metrics["source"]
+        document["click_count_raw"] = int(metrics["raw_clicks"])
+        document["click_count_corrected"] = float(
+            metrics["corrected_clicks"]
+        )
+        document["click_impression_adjusted"] = float(
+            metrics["adjusted_impressions"]
+        )
+        document["popularity_raw"] = float(metrics["popularity_raw"])
+        document["popularity_log"] = float(log_scores[index])
+        percentile_value = float(percentile_scores[index])
+        document["popularity_percentile"] = percentile_value
+
+        corrected_norm = min(
+            1.0,
+            max(0.0, float(metrics["corrected_clicks"]) / 50.0),
+        )
+        impressions_norm = 0.0
+        if metrics["adjusted_impressions"] > 0:
+            impressions_norm = min(
+                1.0,
+                float(metrics["adjusted_impressions"]) / 100.0,
+            )
+        popularity_score = min(
+            1.0,
+            max(
+                0.0,
+                0.5 * percentile_value
+                + 0.3 * corrected_norm
+                + 0.2 * impressions_norm,
+            ),
+        )
+        document["popularity_score"] = popularity_score
+
+    actions = [
+        {
+            "_op_type": "index",
+            "_index": index_name,
+            "_id": document.get("id"),
+            "_source": document,
+        }
+        for document in documents
+    ]
+
+    helpers.bulk(client, actions)
 
 
 def main() -> None:
