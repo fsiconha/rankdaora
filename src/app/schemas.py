@@ -26,6 +26,11 @@ class Document(BaseModel):
         ...,
         description="Score combining all ranking signals.",
     )
+    click_count: int = Field(
+        default=0,
+        ge=0,
+        description="Observed click volume associated with the document.",
+    )
 
     @classmethod
     def from_hit(cls, hit: dict[str, Any]) -> "Document":
@@ -33,6 +38,12 @@ class Document(BaseModel):
 
         source = hit.get("_source", {})
         score = float(hit.get("_score", 0.0))
+        raw_clicks = source.get("click_count", 0)
+        try:
+            click_count = int(raw_clicks)
+        except (TypeError, ValueError):
+            click_count = 0
+        click_count = max(0, click_count)
         return cls(
             id=str(source.get("id") or hit.get("_id")),
             title=source.get("title", "Untitled"),
@@ -41,6 +52,7 @@ class Document(BaseModel):
             date=source.get("date", "1970-01-01"),
             es_score=score,
             combined_score=source.get("combined_score", score),
+            click_count=click_count,
         )
 
 
