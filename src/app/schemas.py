@@ -47,6 +47,37 @@ class Document(BaseModel):
         default=None,
         description="Timestamp of the most recent click in ISO 8601 format.",
     )
+    click_count_raw: int = Field(
+        default=0,
+        ge=0,
+        description="Original click count prior to preprocessing.",
+    )
+    click_count_corrected: float = Field(
+        default=0.0,
+        ge=0.0,
+        description="Position- and time-corrected click signal.",
+    )
+    click_impression_adjusted: float = Field(
+        default=0.0,
+        ge=0.0,
+        description="Exposure volume adjusted by propensity weights.",
+    )
+    popularity_raw: float = Field(
+        default=0.0,
+        ge=0.0,
+        description="Bayesian-smoothed popularity score.",
+    )
+    popularity_log: float = Field(
+        default=0.0,
+        ge=0.0,
+        description="Log-scaled popularity for outlier mitigation.",
+    )
+    popularity_percentile: float = Field(
+        default=0.0,
+        ge=0.0,
+        le=1.0,
+        description="Percentile rank of the log-scaled popularity.",
+    )
 
     @classmethod
     def from_hit(cls, hit: dict[str, Any]) -> "Document":
@@ -77,6 +108,34 @@ class Document(BaseModel):
             click_timestamp = raw_timestamp.strip()
         else:
             click_timestamp = None
+
+        def _float_value(key: str, default: float = 0.0) -> float:
+            value = source.get(key, default)
+            try:
+                return float(value)
+            except (TypeError, ValueError):
+                return default
+
+        def _int_value(key: str, default: int = 0) -> int:
+            value = source.get(key, default)
+            try:
+                return int(value)
+            except (TypeError, ValueError):
+                return default
+
+        click_count_raw = _int_value("click_count_raw", click_count)
+        click_count_corrected = _float_value("click_count_corrected")
+        click_impression_adjusted = _float_value(
+            "click_impression_adjusted",
+            float(click_impression),
+        )
+        popularity_raw = _float_value("popularity_raw")
+        popularity_log = max(0.0, _float_value("popularity_log"))
+        popularity_percentile = min(
+            1.0,
+            max(0.0, _float_value("popularity_percentile")),
+        )
+
         return cls(
             id=str(source.get("id") or hit.get("_id")),
             title=source.get("title", "Untitled"),
@@ -89,6 +148,12 @@ class Document(BaseModel):
             click_position=click_position,
             click_impression=click_impression,
             click_timestamp=click_timestamp,
+            click_count_raw=click_count_raw,
+            click_count_corrected=click_count_corrected,
+            click_impression_adjusted=click_impression_adjusted,
+            popularity_raw=popularity_raw,
+            popularity_log=popularity_log,
+            popularity_percentile=popularity_percentile,
         )
 
 
