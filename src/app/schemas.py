@@ -22,10 +22,6 @@ class Document(BaseModel):
         ...,
         description="Score reported by Elasticsearch.",
     )
-    combined_score: float = Field(
-        ...,
-        description="Score combining all ranking signals.",
-    )
     click_count: int = Field(
         default=0,
         ge=0,
@@ -153,7 +149,6 @@ class Document(BaseModel):
             court=source.get("court", "Unknown"),
             date=source.get("date", "1970-01-01"),
             es_score=score,
-            combined_score=source.get("combined_score", score),
             click_count=click_count,
             click_position=click_position,
             click_impression=click_impression,

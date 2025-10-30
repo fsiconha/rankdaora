@@ -126,7 +126,6 @@ def recreate_index(client: Elasticsearch, index_name: str) -> None:
                 "court": {"type": "keyword"},
                 "date": {"type": "date"},
                 "es_score": {"type": "float"},
-                "combined_score": {"type": "float"},
                 "click_count": {"type": "integer"},
                 "click_position": {"type": "integer"},
                 "click_impression": {"type": "integer"},
@@ -174,6 +173,7 @@ def bulk_load(
                 "click_impression": click_impression,
             }
         )
+        source.pop("combined_score", None)
         if click_timestamp is not None:
             source["click_timestamp"] = click_timestamp
         else:

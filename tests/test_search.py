@@ -34,7 +34,6 @@ class FakeElasticsearch:
                             "content": "Corpo sintetico",
                             "court": "Tribunal de Justica",
                             "date": "2024-01-10",
-                            "combined_score": 1.23,
                             "click_count": 17,
                             "click_position": 2,
                             "click_impression": 120,
@@ -78,7 +77,6 @@ def test_search_returns_results(test_client: TestClient) -> None:
     document = payload["results"][0]
     assert document["id"] == "doc-123"
     assert document["es_score"] == pytest.approx(1.23)
-    assert document["combined_score"] == pytest.approx(1.23)
     assert document["click_count"] == 17
     assert document["click_position"] == 2
     assert document["click_impression"] == 120
