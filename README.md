@@ -11,6 +11,7 @@ The project is designed to be simple, modular, and easily extensible, serving as
 - `scripts/generate_dataset.py` produces a synthetic dataset (~120 documents).
 - `scripts/load_documents.py` recreates the `legal-docs` index and bulk inserts the documents.
 - `src/app` contains the FastAPI application, Pydantic models, and Elasticsearch client integration.
+- `preprocessing/` hosts click-signal preparation helpers (time decay, IPS, Bayesian smoothing, log scaling).
 - `tests/` provides pytest suites that use a fake client to simulate the backend.
 - `.github/workflows/ci.yml` runs linting (`ruff`) and tests on pull requests and pushes.
 
