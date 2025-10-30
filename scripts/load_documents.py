@@ -18,6 +18,25 @@ if str(SRC_DIR) not in sys.path:
 from app.config import get_settings  # noqa: E402
 
 
+def normalize_click_count(raw: object) -> int:
+    """Convert raw inputs into a bounded non-negative click count."""
+
+    if isinstance(raw, bool):
+        return int(raw)
+    if isinstance(raw, (int, float)):
+        return max(0, min(876, int(raw)))
+    if isinstance(raw, str):
+        stripped = raw.strip()
+        if not stripped:
+            return 0
+        try:
+            value = float(stripped)
+        except ValueError:
+            return 0
+        return max(0, min(876, int(value)))
+    return 0
+
+
 def iter_documents(dataset_path: Path) -> Iterable[dict[str, object]]:
     """Yield documents from a JSONL dataset."""
 
@@ -43,6 +62,7 @@ def recreate_index(client: Elasticsearch, index_name: str) -> None:
                 "date": {"type": "date"},
                 "es_score": {"type": "float"},
                 "combined_score": {"type": "float"},
+                "click_count": {"type": "integer"},
             }
         }
     }
@@ -61,7 +81,12 @@ def bulk_load(
             "_op_type": "index",
             "_index": index_name,
             "_id": document.get("id"),
-            "_source": document,
+            "_source": {
+                **document,
+                "click_count": normalize_click_count(
+                    document.get("click_count", 0)
+                ),
+            },
         }
         for document in iter_documents(dataset_path)
     )

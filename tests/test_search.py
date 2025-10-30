@@ -35,6 +35,7 @@ class FakeElasticsearch:
                             "court": "Tribunal de Justica",
                             "date": "2024-01-10",
                             "combined_score": 1.23,
+                            "click_count": 17,
                         },
                     }
                 ]
@@ -68,3 +69,4 @@ def test_search_returns_results(test_client: TestClient) -> None:
     assert document["id"] == "doc-123"
     assert document["es_score"] == pytest.approx(1.23)
     assert document["combined_score"] == pytest.approx(1.23)
+    assert document["click_count"] == 17

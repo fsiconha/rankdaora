@@ -49,6 +49,18 @@ LEGAL_REFERENCES: List[str] = [
 ]
 
 
+def generate_click_count() -> int:
+    """Return a random click count following a simple long-tail curve."""
+
+    roll = random.random()
+    if roll < 0.6:
+        base = max(0, int(random.expovariate(1 / 5)))
+        return min(base, 60)
+    if roll < 0.9:
+        return random.randint(40, 180)
+    return random.randint(200, 876)
+
+
 def random_date() -> str:
     """Return a random ISO date string within the last 10 years."""
 
@@ -97,6 +109,7 @@ def generate_document(counter: int) -> dict[str, object]:
         "date": random_date(),
         "es_score": 0.0,
         "combined_score": 0.0,
+        "click_count": generate_click_count(),
     }
 
 
