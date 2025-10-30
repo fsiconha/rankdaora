@@ -5,7 +5,7 @@ from __future__ import annotations
 import argparse
 import json
 import random
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
 from pathlib import Path
 from typing import List
 from uuid import uuid4
@@ -61,6 +61,38 @@ def generate_click_count() -> int:
     return random.randint(200, 876)
 
 
+def generate_click_position(click_count: int) -> int:
+    """Return a plausible click position (1-based) with bias to top ranks."""
+
+    if click_count <= 0:
+        return 0
+    weights = [0.45, 0.25, 0.12, 0.08, 0.05, 0.03, 0.02]
+    positions = list(range(1, len(weights) + 1))
+    position = random.choices(positions, weights=weights, k=1)[0]
+    tail_bonus = random.random()
+    if tail_bonus > 0.97:
+        position += random.randint(1, 10)
+    return position
+
+
+def generate_click_impression(click_count: int) -> int:
+    """Return the number of impressions associated with the document."""
+
+    base_impressions = random.randint(1, 400)
+    return max(click_count, base_impressions)
+
+
+def generate_click_timestamp() -> str:
+    """Return an ISO 8601 timestamp for the most recent click."""
+
+    now = datetime.utcnow()
+    delta = timedelta(
+        hours=random.randint(0, 24 * 30),
+        minutes=random.randint(0, 59),
+    )
+    return (now - delta).replace(microsecond=0).isoformat() + "Z"
+
+
 def random_date() -> str:
     """Return a random ISO date string within the last 10 years."""
 
@@ -109,7 +141,10 @@ def generate_document(counter: int) -> dict[str, object]:
         "date": random_date(),
         "es_score": 0.0,
         "combined_score": 0.0,
-        "click_count": generate_click_count(),
+        "click_count": (click_count := generate_click_count()),
+        "click_position": generate_click_position(click_count),
+        "click_impression": generate_click_impression(click_count),
+        "click_timestamp": generate_click_timestamp(),
     }
 
 

@@ -31,6 +31,22 @@ class Document(BaseModel):
         ge=0,
         description="Observed click volume associated with the document.",
     )
+    click_position: int = Field(
+        default=0,
+        ge=0,
+        description=(
+            "Observed rank position from which the click was recorded."
+        ),
+    )
+    click_impression: int = Field(
+        default=0,
+        ge=0,
+        description="Total impressions observed for the document.",
+    )
+    click_timestamp: str | None = Field(
+        default=None,
+        description="Timestamp of the most recent click in ISO 8601 format.",
+    )
 
     @classmethod
     def from_hit(cls, hit: dict[str, Any]) -> "Document":
@@ -44,6 +60,23 @@ class Document(BaseModel):
         except (TypeError, ValueError):
             click_count = 0
         click_count = max(0, click_count)
+        raw_position = source.get("click_position", 0)
+        try:
+            click_position = int(raw_position)
+        except (TypeError, ValueError):
+            click_position = 0
+        click_position = max(0, click_position)
+        raw_impression = source.get("click_impression", 0)
+        try:
+            click_impression = int(raw_impression)
+        except (TypeError, ValueError):
+            click_impression = 0
+        click_impression = max(click_count, max(0, click_impression))
+        raw_timestamp = source.get("click_timestamp")
+        if isinstance(raw_timestamp, str) and raw_timestamp.strip():
+            click_timestamp = raw_timestamp.strip()
+        else:
+            click_timestamp = None
         return cls(
             id=str(source.get("id") or hit.get("_id")),
             title=source.get("title", "Untitled"),
@@ -53,6 +86,9 @@ class Document(BaseModel):
             es_score=score,
             combined_score=source.get("combined_score", score),
             click_count=click_count,
+            click_position=click_position,
+            click_impression=click_impression,
+            click_timestamp=click_timestamp,
         )
 
 
