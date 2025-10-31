@@ -5,6 +5,12 @@ It demonstrates how to enrich search results by combining traditional relevance 
 
 The project is designed to be simple, modular, and easily extensible, serving as a foundation for experimenting with new ranking strategies, hybrid scoring models, and signal integration.
 
+<p align="center" style="margin: 3em">
+  <a href="rankdaora-architecture.png">
+    <img src="rankdaora-architecture.png" alt="rankdaora-architecture"/ width="550">
+  </a>
+</p>
+
 ## Overview
 
 - `compose.yaml` orchestrates Elasticsearch and the FastAPI API service.
